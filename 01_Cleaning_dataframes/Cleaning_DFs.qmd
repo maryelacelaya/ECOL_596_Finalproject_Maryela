@@ -1,0 +1,163 @@
+---
+title: "Cleaning_DFs"
+author: "mcr"
+format: html
+editor: visual
+---
+
+## Steps followed for cleaning the data
+
+upload data and packages
+
+```{r}
+library(readr)
+library(dplyr)
+library(readxl)
+library(openxlsx)
+
+##NIWOT
+NWT_SPEI_3 <- read_csv("01_Cleaning_dataframes/NWT_SPEI_3.csv")
+
+
+NWT_data <- read_excel("01_Cleaning_dataframes/NWT_data.xlsx")
+
+
+#BCI
+BCI_SPEI_3 <- read_csv("01_Cleaning_dataframes/BCI_SPEI_3.csv")
+BCI_data <- read_excel("01_Cleaning_dataframes/BCI_data.xlsx")
+
+```
+
+First, calculated the average SPEI per year, per site.
+
+```{r}
+# Extract the year from the DATA column
+NWT_SPEI_3$year <- substr(NWT_SPEI_3$DATA, 5, 6)
+
+BCI_SPEI_3$year <- substr(BCI_SPEI_3$DATA, 5, 6)
+
+
+# Convert the year to a full year format (e.g., "51" to "1951")
+NWT_SPEI_3$year <- ifelse(as.numeric(NWT_SPEI_3$year) < 50, 
+                          paste0("20", NWT_SPEI_3$year),  # Assume years after 2000 for <50
+                          paste0("19", NWT_SPEI_3$year))  # Assume years before 2000 for >=50
+
+
+
+BCI_SPEI_3$year <- ifelse(as.numeric(BCI_SPEI_3$year) < 50, 
+                          paste0("20", BCI_SPEI_3$year),  
+                          paste0("19", BCI_SPEI_3$year))  
+
+
+
+
+# Calculate the mean SPEI for each year
+NWT_annual_spei <- aggregate(SPEI_3 ~ year, data = NWT_SPEI_3, FUN = mean)
+
+
+
+BCI_annual_spei <- aggregate(SPEI_3 ~ year, data = BCI_SPEI_3, FUN = mean)
+
+
+```
+
+Then, added the mean SPEI to my growth dataset
+
+```{r}
+
+colnames(NWT_annual_spei)[colnames(annual_spei) == "year"] <- "date.year"
+
+
+colnames(BCI_annual_spei)[colnames(annual_spei) == "year"] <- "date.year"
+
+
+
+# Merge the datasets by the "year" column
+NWT_data <- merge(NWT_data, NWT_annual_spei, by = "date.year", all.x = TRUE)
+View(NWT_data)
+
+BCI_data <- merge(BCI_data, BCI_annual_spei, by = "date.year", all.x = TRUE)
+View(BCI_data)
+```
+
+Then, saved the data frames by site
+
+```{r}
+write.xlsx(NWT_data, "NWT_growthSPEI.xlsx")
+
+
+write.xlsx(BCI_data, "BCI_growthSPEI.xlsx")
+
+
+
+```
+
+Selecting the data
+
+First, I removed the rows where the dbh value is less than the dbh value of the previous year, based on the idea that "a tree can not decrease", and if it decreased may actually be because it was measured wrong.
+
+```{r}
+NWT_growthSPEI <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/NWT_growthSPEI.xlsx")
+BCI_growthSPEI <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/BCI_growthSPEI.xlsx")
+
+
+#Order the data by year
+NWT_growthSPEI <- NWT_growthSPEI[order(NWT_growthSPEI$date.year), ]
+
+
+BCI_growthSPEI <- BCI_growthSPEI[order(BCI_growthSPEI$date.year), ]
+
+#created a new column with the previous dbh to easily compare
+NWT_growthSPEI$prev_dbh <- c(NA, NWT_growthSPEI$dbh[-nrow(NWT_growthSPEI)])
+
+
+BCI_growthSPEI$prev_dbh <- c(NA, BCI_growthSPEI$dbh[-nrow(BCI_growthSPEI)])
+
+#remove rows of trees that "decreased"
+NWT_growthSPEI <- NWT_growthSPEI[NWT_growthSPEI$dbh >= NWT_growthSPEI$prev_dbh, ]
+
+
+BCI_growthSPEI <- BCI_growthSPEI[BCI_growthSPEI$dbh >= BCI_growthSPEI$prev_dbh, ]
+
+#delete the column with the previous year data
+NWT_growthSPEI$prev_dbh <- NULL
+
+
+BCI_growthSPEI$prev_dbh <- NULL
+```
+
+I then omitted dgh values, as younger trees may have a different response/behaviour to drought events. I then omitted dgh values, as younger trees may have a different response/behavior to drought events.
+
+```{r}
+NWT_growthSPEI <- NWT_growthSPEI[!is.na(NWT_growthSPEI$dbh), ]
+
+
+
+BCI_growthSPEI <- BCI_growthSPEI[!is.na(BCI_growthSPEI$dbh), ]
+
+```
+
+Finally, to make it easier to use other functions in the future, I filled in the "main" column with the same value as "enq" if it was empty (in my DF, when "main" has a number", it indicates the tag of the main individual, and the "enq" value is from a tag for another arm o trunk of the same individual)
+
+```{r}
+NWT_growthSPEI$main <- ifelse(is.na(NWT_growthSPEI$main) | NWT_growthSPEI$main == "", 
+                              NWT_growthSPEI$enq, 
+                              NWT_growthSPEI$main)
+
+
+
+
+BCI_growthSPEI$main <- ifelse(is.na(BCI_growthSPEI$main) | BCI_growthSPEI$main == "", 
+                              BCI_growthSPEI$enq, 
+                              BCI_growthSPEI$main)
+
+```
+
+Saved the cleaned DFs
+
+```{r}
+write.xlsx(NWT_data, "NWT_growthSPEI_cleaned.xlsx")
+
+
+write.xlsx(BCI_data, "BCI_growthSPEI_cleaned.xlsx")
+```
