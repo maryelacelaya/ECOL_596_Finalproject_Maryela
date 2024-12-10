@@ -1,0 +1,20 @@
+---
+title: "Final_project_script"
+author: "Maryela C"
+format: html
+editor: visual
+---
+
+## PART 1: Data description 
+
+Growth data come from the Forest Macrosystems Network (FMN) project, belonging to the forests of Niwot Ridge, CO, USA and Barro Colorado Island, Panama; while drought data were downloaded from SPEI Global Drought Monitor.
+
+## PART 2: Scientific goal 
+
+The research question of this project is "Are drought seasons reflected on the growth rates?"
+
+## PART 3: Statistical analysis 
+
+To test if drought seasons are affecting the growth rates, I conducted a Linear Mixed-Effect Model (LME) per site, where SPEI was use as the fixed effect, and a random effect was included for individual trees and years. Then, I used a LME, where SPEI where a fixed effect and the Forest type was an interaction term, with the same random effects.
+
+## PART 4: Results interpretation
