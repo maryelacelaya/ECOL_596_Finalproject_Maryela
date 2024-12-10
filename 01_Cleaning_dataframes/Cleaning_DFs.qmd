@@ -16,15 +16,15 @@ library(readxl)
 library(openxlsx)
 
 ##NIWOT
-NWT_SPEI_3 <- read_csv("01_Cleaning_dataframes/NWT_SPEI_3.csv")
+NWT_SPEI_3 <- read_csv("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/NWT_SPEI_3.csv")
 
 
-NWT_data <- read_excel("01_Cleaning_dataframes/NWT_data.xlsx")
+NWT_data <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/NWT_data.xlsx")
 
 
 #BCI
-BCI_SPEI_3 <- read_csv("01_Cleaning_dataframes/BCI_SPEI_3.csv")
-BCI_data <- read_excel("01_Cleaning_dataframes/BCI_data.xlsx")
+BCI_SPEI_3 <- read_csv("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/BCI_SPEI_3.csv")
+BCI_data <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/BCI_data.xlsx")
 
 ```
 
@@ -126,28 +126,46 @@ NWT_growthSPEI$prev_dbh <- NULL
 BCI_growthSPEI$prev_dbh <- NULL
 ```
 
-I then omitted dgh values, as younger trees may have a different response/behaviour to drought events. I then omitted dgh values, as younger trees may have a different response/behavior to drought events.
+I then omitted dgh values, as younger trees may have a different response/behaviour to drought events.
 
 ```{r}
+##TO OMIT DGH VALUES
 NWT_growthSPEI <- NWT_growthSPEI[!is.na(NWT_growthSPEI$dbh), ]
-
 
 
 BCI_growthSPEI <- BCI_growthSPEI[!is.na(BCI_growthSPEI$dbh), ]
 
+
+# deleted dgh column
+NWT_growthSPEI <- subset(NWT_growthSPEI, select = -dgh)
+
+
+BCI_growthSPEI <- subset(BCI_growthSPEI, select = -dgh)
 ```
 
 Finally, to make it easier to use other functions in the future, I filled in the "main" column with the same value as "enq" if it was empty (in my DF, when "main" has a number", it indicates the tag of the main individual, and the "enq" value is from a tag for another arm o trunk of the same individual)
 
 ```{r}
-NWT_growthSPEI$main <- ifelse(is.na(NWT_growthSPEI$main) | NWT_growthSPEI$main == "", 
+NWT_growthSPEI$main[NWT_growthSPEI$main %in% c("NA", "na")] <- NA
+
+NWT_growthSPEI$main <- trimws(NWT_growthSPEI$main) # Remove spaces
+NWT_growthSPEI$main[NWT_growthSPEI$main == ""] <- NA # Replace empty strings with NA
+
+
+NWT_growthSPEI$main <- ifelse(is.na(NWT_growthSPEI$main), 
                               NWT_growthSPEI$enq, 
                               NWT_growthSPEI$main)
 
 
 
+# BCI
+BCI_growthSPEI$main[BCI_growthSPEI$main %in% c("NA", "na")] <- NA
 
-BCI_growthSPEI$main <- ifelse(is.na(BCI_growthSPEI$main) | BCI_growthSPEI$main == "", 
+BCI_growthSPEI$main <- trimws(BCI_growthSPEI$main) # Remove spaces
+BCI_growthSPEI$main[BCI_growthSPEI$main == ""] <- NA # Replace empty strings with NA
+
+
+BCI_growthSPEI$main <- ifelse(is.na(BCI_growthSPEI$main), 
                               BCI_growthSPEI$enq, 
                               BCI_growthSPEI$main)
 
@@ -156,8 +174,8 @@ BCI_growthSPEI$main <- ifelse(is.na(BCI_growthSPEI$main) | BCI_growthSPEI$main =
 Saved the cleaned DFs
 
 ```{r}
-write.xlsx(NWT_data, "NWT_growthSPEI_cleaned.xlsx")
+write.xlsx(NWT_growthSPEI, "NWT_growthSPEI_cleaned.xlsx")
 
 
-write.xlsx(BCI_data, "BCI_growthSPEI_cleaned.xlsx")
+write.xlsx(BCI_growthSPEI, "BCI_growthSPEI_cleaned.xlsx")
 ```

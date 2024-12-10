@@ -9,6 +9,20 @@ editor: visual
 
 Growth data come from the Forest Macrosystems Network (FMN) project, belonging to the forests of Niwot Ridge, CO, USA and Barro Colorado Island, Panama; while drought data were downloaded from SPEI Global Drought Monitor.
 
+Load data
+
+```{r}
+#Packages
+library(readxl)
+
+#data
+NWT<- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/NWT_growthSPEI_cleaned.xlsx")
+
+
+BCI<- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/BCI_growthSPEI_cleaned.xlsx")
+
+```
+
 ## PART 2: Scientific goal 
 
 The research question of this project is "Are drought seasons reflected on the growth rates?"
@@ -16,5 +30,118 @@ The research question of this project is "Are drought seasons reflected on the g
 ## PART 3: Statistical analysis 
 
 To test if drought seasons are affecting the growth rates, I conducted a Linear Mixed-Effect Model (LME) per site, where SPEI was use as the fixed effect, and a random effect was included for individual trees and years. Then, I used a LME, where SPEI where a fixed effect and the Forest type was an interaction term, with the same random effects.
+
+0.  Load necessary library
+
+```{r}
+library(Matrix)
+library(lme4)
+library(lmerTest)
+library(forestmangr)
+library(dplyr)
+```
+
+Pre-statistical analysis settings:
+
+1.  Check for NA or empty strings on the df
+
+    ```{r}
+    #NIWOT RIDGE FOREST
+    NWT$dbh <- as.numeric(NWT$dbh)
+    head(NWT$dbh)
+
+    #SAME FOR BARRO COLORADO ISLAND
+    BCI$dbh <- as.numeric(BCI$dbh)
+    head(BCI)
+    ```
+
+2.  Used the tree_summarise function from the "forestmangr" package to calculate the equivalent diameter of trees with more than one trunk.
+
+```{r}
+#For Niwot Ridge Forest
+NWT<-tree_summarise(NWT, #my DF
+                    "dbh", #column with size measurements
+                    tree="main", #tree id column
+                    .groups = c("plot","date.year","site","line")) #parameters to subdivide the estimated dbh
+
+
+#Same for Barro Colorado Island Forest
+BCI<-tree_summarise(BCI, #my DF
+                    "dbh", #column with size measurements
+                    tree="main", #tree id column
+                    .groups = c("plot","date.year","site","line")) #parameters to subdivide the estimated dbh
+
+
+
+```
+
+2.  Then, calculated the "growth rate". A simple way I thought I could get the growth rate, is by subtracting the value of dbh from the immediately preceding year. There are specific formulas to calculate this, but for practical purposes, I decided to use this method.
+
+```{r}
+#For NWT
+NWT_rate <- NWT %>%
+  group_by(main) %>%
+  arrange(main, date.year) %>%  # Ensure it's sorted by year within each tree
+  mutate(growth_rate = c(NA, diff(dbh))) %>%
+  ungroup()  # Remove grouping after calculation
+
+
+
+#Same for BCI
+BCI_rate <- BCI %>%
+  group_by(main) %>%
+  arrange(main, date.year) %>%  # Ensure it's sorted by year within each tree
+  mutate(growth_rate = c(NA, diff(dbh))) %>%
+  ungroup()  # Remove grouping after calculation
+
+```
+
+3.  As a tree cannot "decrease", I omitted all negative "growth_rate" values, as this is probably due to measurement error.
+
+    ```{r}
+    #FOR NWT
+    NWT_rate_c <- NWT_rate %>%
+      filter(growth_rate >= 0)
+
+
+    #SAME FOR BCI
+    BCI_rate_c <- BCI_rate %>%
+      filter(growth_rate >= 0)
+
+    ```
+
+### LME for Niwot Ridge
+
+Model 1 was the simplest and the one that best fit the data (lower REML). This suggests a weak positive relationship between drought and growth rate (Estimate=0.036 , p-value=0.069).
+
+Notice that I also tried others models, such as:
+
+-   Model 2: growth_rate \~ SPEI + (1 \| species_binomial)
+
+    -   The REML (31674.1) was higher than Model 1, but the difrection of the effect was the same: positive relationship between SPEI and growth rate.
+
+-   Model 3: growth_rate \~ SPEI + (1 \| species_binomial) + ( 1 \| year)
+
+    -   REML (31673.1) higher than Model 1 but similar to Model 2.
+
+-   Model 4: growth_rate \~ SPEI + ( 1 \| tree tag) + (1 \| year)
+
+    -   REML (30871.6) lower tan Model 1, but p-value suggested no evidence for a relationship between drought and growth.
+
+```{r}
+#Here I'm showing MODEL 1
+NWT_lme<- lmer(growth_rate ~ SPEI_3 + (1 | main) , data = NWT_rate_c)
+
+summary(NWT_lme)
+
+```
+
+### LME for Barro Colorado Island
+
+```{r}
+
+```
+
+Both
 
 ## PART 4: Results interpretation
