@@ -7,7 +7,19 @@ editor: visual
 
 ## PART 1: Data description 
 
-Growth data come from the Forest Macrosystems Network (FMN) project, belonging to the forests of Niwot Ridge, CO, USA and Barro Colorado Island, Panama; while drought data were downloaded from SPEI Global Drought Monitor.
+### Data sources: 
+
+Growth data were obtained from [**The Forest Macrosystems Network (FMN)**](https://www.forestmacrosystems.org/) project. For this analysis, I focused on the following forest sites:
+
+-   **Niwot Ridge, CO, USA**: A subalpine forest. Growth data were collected during the sampling years 2012, 2013, 2014, 2015, 2016, 2017, 2019, 2020, and 2022.
+
+-   **Barro Colorado Island, Panama**: A tropical seasonal forest. Growth data were collected during the sampling years 2012, 2013, 2014, 2015, and 2016.
+
+Drought data were obtained from the [**SPEI Global Drought Monitor**](https://spei.csic.es/home.html), with a spatial resolution of three months for each site. Only negative SPEI values, which indicate some level of drought, were included in the analysis. The annual average SPEI value was then calculated for each site to represent the drought conditions during the corresponding years.
+
+Further details on data collection methods can be found on the respective website.
+
+### Description of columns:
 
 Load data
 
@@ -15,11 +27,43 @@ Load data
 #Packages
 library(readxl)
 
-#data
+#data for Niwot Ridge Forest
 NWT<- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/NWT_growthSPEI_cleaned.xlsx")
 
-
+#data for Barro Colorado Island Forest
 BCI<- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/BCI_growthSPEI_cleaned.xlsx")
+
+```
+
+The forest datasets underwent preliminary cleaning (details available in *01_Cleaning_dataframes*). While the datasets contain numerous columns, the following variables were specifically used for this analysis:
+
+-   **`date.year`**: The year of the observation.
+
+-   **`site`**: The forest name (either Niwot Ridge or Barro Colorado Island).
+
+-   **`plot` / `line`**: Subplot information for each site. Each forest comprises five plots, with each plot containing 10 sampling lines or transects. Both "plot" and "line" are required to maintain homogeneous conditions.
+
+-   **`main`**: A unique identifier for each tree or shrub.
+
+-   **`species_binomial`**: The scientific name of the tree or shrub species.
+
+-   **`SPEI_3`**: The standardized precipitation-evapotranspiration index (SPEI) value with a three-month resolution, representing drought intensity.
+
+-   **`dbh`**: The raw value of diameter at breast height (DBH).
+
+Also created a combined DF, where I'm including both sites
+
+```{r}
+#First unified the columns
+BCI$dbh <- as.numeric(BCI$dbh)
+BCI$SPEI_3 <- as.numeric(BCI$SPEI_3)
+NWT$vwb <- as.numeric(NWT$vwb)
+NWT$vwob <- as.numeric(NWT$vwob)
+
+
+
+#to merge DFs
+NWT_BCI<-rbind(NWT, BCI)
 
 ```
 
@@ -27,9 +71,17 @@ BCI<- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cl
 
 The research question of this project is "Are drought seasons reflected on the growth rates?"
 
+In DAG, it would look something like this: drought —\> growth , but in a effort to include more variables, I also recognize this relations: year —\> drought —\> \[ species —\> \] growth \<--- site
+
+I hypothesize that tree growth rates will exhibit a significant negative correlation with drought intensity, such that growth rates will decline during years characterized by more severe drought conditions.
+
 ## PART 3: Statistical analysis 
 
 To test if drought seasons are affecting the growth rates, I conducted a Linear Mixed-Effect Model (LME) per site, where SPEI was use as the fixed effect, and a random effect was included for individual trees and years. Then, I used a LME, where SPEI where a fixed effect and the Forest type was an interaction term, with the same random effects.
+
+It is important to note that using "main" (that is, tree ID) is not the same as "species_binomial", since the first would reflect variability between individuals, and the second, between taxonomic species.
+
+### Pre-statistical analysis settings:
 
 0.  Load necessary library
 
@@ -39,9 +91,8 @@ library(lme4)
 library(lmerTest)
 library(forestmangr)
 library(dplyr)
+library(ggplot2)
 ```
-
-Pre-statistical analysis settings:
 
 1.  Check for NA or empty strings on the df
 
@@ -53,6 +104,7 @@ Pre-statistical analysis settings:
     #SAME FOR BARRO COLORADO ISLAND
     BCI$dbh <- as.numeric(BCI$dbh)
     head(BCI)
+
     ```
 
 2.  Used the tree_summarise function from the "forestmangr" package to calculate the equivalent diameter of trees with more than one trunk.
@@ -75,7 +127,7 @@ BCI<-tree_summarise(BCI, #my DF
 
 ```
 
-2.  Then, calculated the "growth rate". A simple way I thought I could get the growth rate, is by subtracting the value of dbh from the immediately preceding year. There are specific formulas to calculate this, but for practical purposes, I decided to use this method.
+2.  The "growth rate" was subsequently calculated by determining the annual increment in diameter at breast height (DBH). This was achieved by subtracting the DBH value of the previous year from the current year's DBH. While there are established formulas for calculating growth rate with greater precision, this straightforward method was selected for practical purposes in this analysis.
 
 ```{r}
 #For NWT
@@ -110,6 +162,24 @@ BCI_rate <- BCI %>%
 
     ```
 
+4.  Then, merged the two forest
+
+    ```{r}
+    # View columns to identify differences
+    colnames(NWT_rate_c)
+    colnames(BCI_rate_c)
+
+    # Check if now they have the same columns
+    colnames(NWT_rate_c)
+    colnames(BCI_rate_c)
+
+
+    # Merge the data frames
+    NWTxBCI_rate <- rbind(NWT_rate_c, BCI_rate_c)
+
+
+    ```
+
 ### LME for Niwot Ridge
 
 Model 1 was the simplest and the one that best fit the data (lower REML). This suggests a weak positive relationship between drought and growth rate (Estimate=0.036 , p-value=0.069).
@@ -138,10 +208,96 @@ summary(NWT_lme)
 
 ### LME for Barro Colorado Island
 
+Model 3 was the one that best fit the data (lower REML). This suggest that the species and the year are both explaining the variation in growth (Estimate=0.036 , p-value=0.018).
+
+Notice that I also tried others models, such as:
+
+-   Model 1: growth_rate \~ SPEI + ( 1 \| tree tag)
+
+    -   REML (13,503.8) lower than Model 3, but p-value (0.891) indicates no significant result.
+
+-   Model 2: growth_rate \~ SPEI + ( 1 \| species_binomial)
+
+    -   REML (24,381.7) higher than the rest of the models.
+
+-   Model 4: growth_rate \~ SPEI + ( 1 \| main) + (1 \| year)
+
+    -   REML (13503.8) same as Model 1, but the variance for year in here is 0, probably becaue of a redundancy with the SPEI.
+
 ```{r}
+#Here I'm showing model 3
+BCI_lme<- lmer(growth_rate ~ SPEI_3 + (1 | species_binomial) + (1|date.year), data = BCI_rate_c)
+
+summary(BCI_lme)
 
 ```
 
-Both
+### LME for both forest
+
+Model 2, despite not being the lowest REML, is the one that fits best (lower residual variance), and it stands out that the site effect is significant (p = 0.00153), but neither SPEI nor the interaction term is significant.
+
+-   Model 1: growth_rate \~ SPEI \* site + ( 1 \| species )
+
+    -   REML (56543.3); this model suggests that the species are a main factor influencing the growth rate.
+
+-   Model 2: growth_rate \~ SPEI \* site + (1 \| main)
+
+    -   REML (50951.4) lower than Model 1, as well as lower residual variance. The tree ID (main) as a grouping variable is worse than Model 1.
+
+-   Model 3: growth_rate \~ SPEI + dbh + (1 \| species )
+
+    -   REML: 54499; The result is not statistically significant (p=0.0952).
+
+-   Model 4: growth_rate \~ SPEI \* site + dbh + (1 \| species )
+
+    -   REML (54491) slightly lower than Model 3; The interaction between SPEI and site is significant, indicating that the effect of drought on growth rate differs between sites.
+
+-   Model 5: growth_rate \~ SPEI_3 + site + dbh + (1 \| main)
+
+    -   Second lowest REML (49619); SPEI in here is not explaining variation in growth rates
+
+-   Model 6: growth_rate \~ SPEI + site + dbh + (1 \| year )
+
+    -   REML: 54771.4; SPEI is significant in here, suggesting that drought has a measurable effect on growth rates.
+
+-   Model 7: growth_rate \~ SPEI \* site + dbh + (1 \| year ) + (1\| species) + (1\|tree ID)
+
+    -   Lowest REML (49563.7) but least parsimonious (over-parameterization)
+
+```{r}
+NWTxBCI_lme <- lmer(growth_rate ~ SPEI_3 * site + dbh + (1|species_binomial) + (1|main) + (1 | date.year), data = NWTxBCI_rate)
+
+
+summary(NWTxBCI_lme)
+```
 
 ## PART 4: Results interpretation
+
+Niwot Ridge
+
+RAW DATA
+
+```{r}
+ggplot(NWT_rate_c, aes(x = SPEI_3, y = growth_rate)) +
+  geom_point(alpha = 0.5) +
+  labs(x = "SPEI (Drought Severity)", y = "Growth Rate") +
+  theme_minimal() +
+  ggtitle("Growth Rate vs. SPEI (Drought Severity)")
+
+```
+
+Graph for Model 1
+
+```{r}
+NWT_rate_c$predicted_growth <- predict(NWT_lme)
+
+ggplot(NWT_rate_c, aes(x = SPEI_3, y = growth_rate)) +
+  geom_point(alpha = 0.5) +
+  geom_line(aes(y = predicted_growth), color = "blue", size = 1) +
+  labs(x = "SPEI (Drought Severity)", y = "Growth Rate") +
+  theme_minimal() +
+  ggtitle("Growth Rate vs. SPEI with Model Prediction")
+
+```
+
+## Supplementary  material 
