@@ -16,15 +16,15 @@ library(readxl)
 library(openxlsx)
 
 ##NIWOT
-NWT_SPEI_3 <- read_csv("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/NWT_SPEI_3.csv")
+NWT_SPEI_3 <- read_csv("01_Cleaning_dataframes/NWT_SPEI_3.csv")
 
 
-NWT_data <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/NWT_data.xlsx")
+NWT_data <- read_excel("01_Cleaning_dataframes/NWT_data.xlsx")
 
 
 #BCI
-BCI_SPEI_3 <- read_csv("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/BCI_SPEI_3.csv")
-BCI_data <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/BCI_data.xlsx")
+BCI_SPEI_3 <- read_csv("01_Cleaning_dataframes/BCI_SPEI_3.csv")
+BCI_data <- read_excel("01_Cleaning_dataframes/BCI_data.xlsx")
 
 ```
 
@@ -64,11 +64,9 @@ BCI_annual_spei <- aggregate(SPEI_3 ~ year, data = BCI_SPEI_3, FUN = mean)
 Then, added the mean SPEI to my growth dataset
 
 ```{r}
+colnames(NWT_annual_spei)[colnames(NWT_annual_spei) == "year"] <- "date.year"
 
-colnames(NWT_annual_spei)[colnames(annual_spei) == "year"] <- "date.year"
-
-
-colnames(BCI_annual_spei)[colnames(annual_spei) == "year"] <- "date.year"
+colnames(BCI_annual_spei)[colnames(BCI_annual_spei) == "year"] <- "date.year"
 
 
 
@@ -97,8 +95,8 @@ Selecting the data
 First, I removed the rows where the dbh value is less than the dbh value of the previous year, based on the idea that "a tree can not decrease", and if it decreased may actually be because it was measured wrong.
 
 ```{r}
-NWT_growthSPEI <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/NWT_growthSPEI.xlsx")
-BCI_growthSPEI <- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/BCI_growthSPEI.xlsx")
+NWT_growthSPEI <- read_excel("01_Cleaning_dataframes/NWT_growthSPEI.xlsx")
+BCI_growthSPEI <- read_excel("01_Cleaning_dataframes/BCI_growthSPEI.xlsx")
 
 
 #Order the data by year

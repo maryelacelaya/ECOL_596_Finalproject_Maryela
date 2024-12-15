@@ -5,9 +5,9 @@ format: html
 editor: visual
 ---
 
-## PART 1: Data description 
+## PART 1: Data description
 
-### Data sources: 
+### Data sources:
 
 Growth data were obtained from [**The Forest Macrosystems Network (FMN)**](https://www.forestmacrosystems.org/) project. For this analysis, I focused on the following forest sites:
 
@@ -28,10 +28,10 @@ Load data
 library(readxl)
 
 #data for Niwot Ridge Forest
-NWT<- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/NWT_growthSPEI_cleaned.xlsx")
+NWT<- read_excel("01_Cleaning_dataframes/NWT_growthSPEI_cleaned.xlsx")
 
 #data for Barro Colorado Island Forest
-BCI<- read_excel("C:/Users/Usuario/Downloads/ECOL_596_Finalproject_Maryela/01_Cleaning_dataframes/BCI_growthSPEI_cleaned.xlsx")
+BCI<- read_excel("01_Cleaning_dataframes/BCI_growthSPEI_cleaned.xlsx")
 
 ```
 
@@ -57,17 +57,14 @@ Also created a combined DF, where I'm including both sites
 #First unified the columns
 BCI$dbh <- as.numeric(BCI$dbh)
 BCI$SPEI_3 <- as.numeric(BCI$SPEI_3)
-NWT$vwb <- as.numeric(NWT$vwb)
-NWT$vwob <- as.numeric(NWT$vwob)
-
-
 
 #to merge DFs
-NWT_BCI<-rbind(NWT, BCI)
+NWT_BCI <- merge(NWT, BCI, by = c("date.year", "site"), all = TRUE)
+
 
 ```
 
-## PART 2: Scientific goal 
+## PART 2: Scientific goal
 
 The research question of this project is "Are drought seasons reflected on the growth rates?"
 
@@ -75,7 +72,7 @@ In DAG, it would look something like this: drought —\> growth , but in a effor
 
 I hypothesize that tree growth rates will exhibit a significant negative correlation with drought intensity, such that growth rates will decline during years characterized by more severe drought conditions.
 
-## PART 3: Statistical analysis 
+## PART 3: Statistical analysis
 
 To test if drought seasons are affecting the growth rates, I conducted a Linear Mixed-Effect Model (LME) per site, where SPEI was use as the fixed effect, and a random effect was included for individual trees and years. Then, I used a LME, where SPEI where a fixed effect and the Forest type was an interaction term, with the same random effects.
 
@@ -173,6 +170,16 @@ BCI_rate <- BCI %>%
     colnames(NWT_rate_c)
     colnames(BCI_rate_c)
 
+    missing_columns <- setdiff(colnames(NWT_rate_c), colnames(BCI_rate_c))
+
+    for (col in missing_columns) {
+        BCI_rate_c[[col]] <- NA }
+
+
+    BCI_rate_c <- BCI_rate_c[, colnames(NWT_rate_c)]
+
+    extra_columns <- setdiff(colnames(BCI_rate_c), colnames(NWT_rate_c))
+    BCI_rate_c <- BCI_rate_c[, !(colnames(BCI_rate_c) %in% extra_columns)]
 
     # Merge the data frames
     NWTxBCI_rate <- rbind(NWT_rate_c, BCI_rate_c)
@@ -275,14 +282,65 @@ summary(NWTxBCI_lme)
 
 Niwot Ridge
 
-RAW DATA
+RAW DATA: plot per species
 
 ```{r}
-ggplot(NWT_rate_c, aes(x = SPEI_3, y = growth_rate)) +
+NWT_rate_c$predicted_growth <- NA  
+complete_rows <- complete.cases(NWT_rate_c[, c("date.year", "site", "plot", "census.year", "line", "main", "enq", "species_binomial", "family", "morpho", "habit", "site_id", "SPEI_3", "dbh", "vwb", "vwob", "growth_rate")])
+
+NWT_rate_c$predicted_growth[complete_rows] <- predict(NWT_lme, newdata = NWT_rate_c[complete_rows, ])
+
+
+# Filter the data
+NWT_rate_c_filtered <- NWT_rate_c %>%
+  filter(SPEI_3 <= 0, species_binomial != "unidentified_NWT")
+
+# Create the plot
+ggplot(NWT_rate_c_filtered, aes(x = SPEI_3, y = growth_rate)) +
   geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~ species_binomial) +  # Create separate plots for each species
   labs(x = "SPEI (Drought Severity)", y = "Growth Rate") +
   theme_minimal() +
-  ggtitle("Growth Rate vs. SPEI (Drought Severity)")
+  ggtitle("Growth Rate vs. SPEI by Species")
+
+
+
+
+```
+
+RAW DATA: plot per site. Applied a log transformation to compress the high range of growth rate
+
+```{r}
+NWT_rate_c_filtered$log_growth_rate <- log(NWT_rate_c_filtered$growth_rate + 1)  # Adding 1 to avoid log(0)
+
+
+ggplot(NWT_rate_c_filtered, aes(x = SPEI_category, y = log_growth_rate, color = SPEI_category)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(x = "SPEI Category (Drought Severity)", y = "Log Growth Rate") +
+  theme_minimal() +
+  ggtitle("Log Growth Rate Distribution by SPEI Categories")
+
+
+
+
+```
+
+boxplot?
+
+```{r}
+# Create categories for SPEI_3 (optional, based on your analysis)
+NWT_rate_c_filtered$SPEI_category <- cut(NWT_rate_c_filtered$SPEI_3, 
+                                          breaks = c(-Inf, -1, -0.5, 0), 
+                                          labels = c("Severe Drought", "Moderate Drought", "Mild Drought"))
+
+# Create the boxplot
+ggplot(NWT_rate_c_filtered, aes(x = SPEI_category, y = growth_rate, color = SPEI_category)) +
+  geom_boxplot(alpha = 0.7) +  # Boxplot for growth rate based on SPEI categories
+  labs(x = "SPEI Category (Drought Severity)", y = "Growth Rate") +  # Axis labels
+  theme_minimal() +
+  ggtitle("Growth Rate Distribution by SPEI Categories (Drought Severity)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
 
 ```
 
@@ -300,4 +358,4 @@ ggplot(NWT_rate_c, aes(x = SPEI_3, y = growth_rate)) +
 
 ```
 
-## Supplementary  material 
+## Supplementary material
