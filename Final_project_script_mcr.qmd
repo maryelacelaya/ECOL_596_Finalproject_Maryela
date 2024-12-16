@@ -143,19 +143,31 @@ BCI_rate <- BCI %>%
   mutate(growth_rate = c(NA, diff(dbh))) %>%
   ungroup()  # Remove grouping after calculation
 
+
+
 ```
 
 3.  As a tree cannot "decrease", I omitted all negative "growth_rate" values, as this is probably due to measurement error.
 
     ```{r}
     #FOR NWT
-    NWT_rate_c <- NWT_rate %>%
-      filter(growth_rate >= 0)
+    NWT_rate_c <- NWT_rate_c[NWT_rate_c$SPEI_3 <= 0, ]
+
 
 
     #SAME FOR BCI
     BCI_rate_c <- BCI_rate %>%
       filter(growth_rate >= 0)
+
+    #removed an outlier
+    maxBCI_growth_rate_index <- which.max(BCI_rate_c$growth_rate)
+    max_growth_rate_row <- BCI_rate_c[max_growth_rate_index, ]
+    maxBCI_growth_rate_row <- BCI_rate_c[max_growth_rate_index, ]
+    maxBCI_growth_rate_row
+
+    # Overwrite the original dataset with the one that has the row removed
+    BCI_rate_clean <- maxBCI_growth_rate_row [-max_growth_rate_index, ]
+
 
     ```
 
@@ -164,25 +176,25 @@ BCI_rate <- BCI %>%
     ```{r}
     # View columns to identify differences
     colnames(NWT_rate_c)
-    colnames(BCI_rate_c)
+    colnames(BCI_rate_clean)
 
     # Check if now they have the same columns
     colnames(NWT_rate_c)
-    colnames(BCI_rate_c)
+    colnames(BCI_rate_clean)
 
-    missing_columns <- setdiff(colnames(NWT_rate_c), colnames(BCI_rate_c))
+    missing_columns <- setdiff(colnames(NWT_rate_c), colnames(BCI_rate_clean))
 
     for (col in missing_columns) {
-        BCI_rate_c[[col]] <- NA }
+        BCI_rate_clean[[col]] <- NA }
 
 
-    BCI_rate_c <- BCI_rate_c[, colnames(NWT_rate_c)]
+    BCI_rate_c <- BCI_rate_clean[, colnames(NWT_rate_c)]
 
-    extra_columns <- setdiff(colnames(BCI_rate_c), colnames(NWT_rate_c))
+    extra_columns <- setdiff(colnames(BCI_rate_clean), colnames(NWT_rate_c))
     BCI_rate_c <- BCI_rate_c[, !(colnames(BCI_rate_c) %in% extra_columns)]
 
     # Merge the data frames
-    NWTxBCI_rate <- rbind(NWT_rate_c, BCI_rate_c)
+    NWTxBCI_rate <- rbind(NWT_rate_c, BCI_rate_clean)
 
 
     ```
@@ -211,6 +223,7 @@ NWT_lme<- lmer(growth_rate ~ SPEI_3 + (1 | main) , data = NWT_rate_c)
 
 summary(NWT_lme)
 
+
 ```
 
 ### LME for Barro Colorado Island
@@ -233,7 +246,7 @@ Notice that I also tried others models, such as:
 
 ```{r}
 #Here I'm showing model 3
-BCI_lme<- lmer(growth_rate ~ SPEI_3 + (1 | species_binomial) + (1|date.year), data = BCI_rate_c)
+BCI_lme<- lmer(growth_rate ~ SPEI_3 + (1 | species_binomial) + (1|date.year), data = BCI_rate_clean)
 
 summary(BCI_lme)
 
@@ -312,49 +325,183 @@ ggplot(NWT_rate_c_filtered, aes(x = SPEI_3, y = growth_rate)) +
 RAW DATA: plot per site. Applied a log transformation to compress the high range of growth rate
 
 ```{r}
-NWT_rate_c_filtered$log_growth_rate <- log(NWT_rate_c_filtered$growth_rate + 1)  # Adding 1 to avoid log(0)
-
-
-ggplot(NWT_rate_c_filtered, aes(x = SPEI_category, y = log_growth_rate, color = SPEI_category)) +
-  geom_boxplot(alpha = 0.7) +
+ggplot(NWT_rate_c_filtered_no_outliers, aes(x = SPEI_category, y = log_growth_rate, color = SPEI_category)) +
+  geom_violin(trim = TRUE, alpha = 0.7) +
   labs(x = "SPEI Category (Drought Severity)", y = "Log Growth Rate") +
+  scale_y_continuous(breaks = seq(0, max(NWT_rate_c_filtered_no_outliers$log_growth_rate), by = 1.5)) +  # Adjust y-axis breaks
   theme_minimal() +
-  ggtitle("Log Growth Rate Distribution by SPEI Categories")
+  ggtitle("Log Growth Rate Distribution by SPEI Categories (No Outliers)")
 
 
 
 
 ```
 
-boxplot?
+another plot idea
 
 ```{r}
-# Create categories for SPEI_3 (optional, based on your analysis)
-NWT_rate_c_filtered$SPEI_category <- cut(NWT_rate_c_filtered$SPEI_3, 
-                                          breaks = c(-Inf, -1, -0.5, 0), 
-                                          labels = c("Severe Drought", "Moderate Drought", "Mild Drought"))
-
-# Create the boxplot
-ggplot(NWT_rate_c_filtered, aes(x = SPEI_category, y = growth_rate, color = SPEI_category)) +
-  geom_boxplot(alpha = 0.7) +  # Boxplot for growth rate based on SPEI categories
-  labs(x = "SPEI Category (Drought Severity)", y = "Growth Rate") +  # Axis labels
+ggplot(NWT_rate_c_filtered_no_outliers, aes(x = SPEI_3, y = log_growth_rate, color = SPEI_category)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(x = "SPEI (Drought Severity)", y = "Log Growth Rate") +
   theme_minimal() +
-  ggtitle("Growth Rate Distribution by SPEI Categories (Drought Severity)") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+  ggtitle("Log Growth Rate vs. SPEI (Drought Severity) with Trend Line")
+
+
+
+
+
 
 ```
 
 Graph for Model 1
 
 ```{r}
-NWT_rate_c$predicted_growth <- predict(NWT_lme)
+NWT_rate_c$predicted_growth <- predict(NWT_lme, newdata = NWT_rate_c, allow.new.levels = TRUE)
+# Check levels of the grouping variable in new data
+levels(NWT_rate_c$site)  # Check that the levels are the same as in the model
+# Remove rows with missing values
+NWT_rate_c_no_na <- NWT_rate_c[complete.cases(NWT_rate_c), ]
+NWT_rate_c_no_na$predicted_growth <- predict(NWT_lme, newdata = NWT_rate_c_no_na)
+
+
 
 ggplot(NWT_rate_c, aes(x = SPEI_3, y = growth_rate)) +
-  geom_point(alpha = 0.5) +
-  geom_line(aes(y = predicted_growth), color = "blue", size = 1) +
+  geom_point(alpha = 0.5, color = "black") +  # Data points in grey with some transparency
+  geom_smooth(method = "loess", aes(y = growth_rate), color = "red", size = 1, se = TRUE) +  # Flexible trend line with CI
   labs(x = "SPEI (Drought Severity)", y = "Growth Rate") +
   theme_minimal() +
-  ggtitle("Growth Rate vs. SPEI with Model Prediction")
+  ggtitle("Growth Rate vs. SPEI with Model Prediction and Trend Line") +
+  theme(plot.title = element_text(hjust = 0.5))  # Center the title
+
+```
+
+BCI RAW DATA: impossible to read
+
+```{r}
+BCI_rate_c$predicted_growth <- NA  
+complete_rows <- complete.cases(BCI_rate_c[, c("date.year", "site", "plot", "census.year", "line", "main", "enq", "species_binomial", "family", "morpho", "habit", "site_id", "SPEI_3", "dbh", "vwb", "vwob", "growth_rate")])
+
+BCI_rate_c$predicted_growth[complete_rows] <- predict(BCI_lme, newdata = BCI_rate_c[complete_rows, ])
+
+
+# Filter the data
+BCI_rate_c_filtered <- BCI_rate_c %>%
+  filter(SPEI_3 <= 0, species_binomial != "unidentified_BCI")
+
+# Create the plot
+ggplot(BCI_rate_c_filtered, aes(x = SPEI_3, y = growth_rate)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  facet_wrap(~ species_binomial) +  # Create separate plots for each species
+  labs(x = "SPEI (Drought Severity)", y = "Growth Rate") +
+  theme_minimal() +
+  ggtitle("Growth Rate vs. SPEI by Species")
+```
+
+raw data per site
+
+```{r}
+ggplot(BCI_rate_c, aes(x = SPEI_3, y = growth_rate)) +
+  geom_point(alpha = 0.5) +  # Points
+  geom_smooth(method = "lm", color = "orange", se = FALSE) +  # Linear regression line
+  labs(x = "SPEI (Drought Severity)", y = "Growth Rate") +
+  theme_minimal() +
+  ggtitle("Growth Rate vs. SPEI (Drought Severity)")
+
+```
+
+BCI MODEL
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(lme4)
+
+# Get the predictions from the model (fixed effects only)
+BCI_rate_c$predicted_growth <- predict(BCI_lme, newdata = BCI_rate_c, re.form = NA)
+
+# Plot the observed vs predicted growth rates
+ggplot(BCI_rate_c, aes(x = predicted_growth, y = growth_rate)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(title = "Observed vs Predicted Growth Rates",
+       x = "Predicted Growth Rate",
+       y = "Observed Growth Rate") +
+  theme_minimal()
+
+# Now plot the effect of 'SPEI_3' on 'growth_rate'
+ggplot(BCI_rate_c, aes(x = SPEI_3, y = growth_rate)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(title = "Effect of SPEI_3 on Growth Rate",
+       x = "SPEI_3", 
+       y = "Growth Rate") +
+  theme_minimal()
+
+```
+
+BOTH RAW DATA
+
+```{r}
+# Assuming you have a column 'site' with values 'Niwot Ridge' and 'Barro Colorado Island'
+ggplot(NWTxBCI_rate, aes(x = SPEI_3, y = growth_rate)) +
+  geom_point(aes(color = site), alpha = 0.6) +
+  scale_color_manual(values = c("Niwot Ridge LTER" = "blue", "Barro Colorado Island" = "red")) +
+  labs(title = "Growth Rate vs SPEI_3 by Site", 
+       x = "SPEI_3", 
+       y = "Growth Rate") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+
+```
+
+model for both sites together
+
+```{r}
+# Filter out non-finite values from the SPEI_3 column
+NWTxBCI_rate_clean <- NWTxBCI_rate[is.finite(NWTxBCI_rate$SPEI_3), ]
+
+# Create the new data frame for predictions
+new_data <- expand.grid(
+  SPEI_3 = seq(min(NWTxBCI_rate_clean$SPEI_3), max(NWTxBCI_rate_clean$SPEI_3), length.out = 100),  # Range of SPEI_3
+  site = unique(NWTxBCI_rate_clean$site),
+  dbh = mean(NWTxBCI_rate_clean$dbh, na.rm = TRUE)  # Mean DBH for consistency
+)
+
+# Make predictions from the linear mixed model
+new_data$predicted_growth_rate <- predict(NWTxBCI_lme, newdata = new_data, re.form = NA)
+
+# Plotting the interaction between SPEI_3 and site
+ggplot(new_data, aes(x = SPEI_3, y = predicted_growth_rate, color = site)) +
+  geom_line(size = 1.2) + 
+  labs(title = "Predicted Growth Rate vs SPEI_3 by Site", 
+       x = "SPEI_3", 
+       y = "Predicted Growth Rate", 
+       color = "Site") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("blue", "red"))  # Customize colors for the sites
+
+
+```
+
+```{r}
+# Plot the raw data with smoothed tendency but clipped to avoid negative values
+ggplot(NWTxBCI_rate_clean, aes(x = SPEI_3, y = growth_rate, color = site)) +
+  geom_point(alpha = 0.3) +  # Raw data points
+  geom_smooth(method = "loess", se = FALSE, size = 1.2) +  # Smoothing line
+  labs(title = "Raw Data: Growth Rate vs SPEI_3 by Site", 
+       x = "SPEI_3", 
+       y = "Growth Rate", 
+       color = "Site") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("blue", "red")) +
+  coord_cartesian(ylim = c(0, NA))  # Limit y-axis to start from 0
+
 
 ```
 

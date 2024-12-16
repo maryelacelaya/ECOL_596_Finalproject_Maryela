@@ -169,11 +169,71 @@ BCI_growthSPEI$main <- ifelse(is.na(BCI_growthSPEI$main),
 
 ```
 
+Second round of cleaning
+
+Check for NA or empty strings on the DF
+
+```{r}
+   #NIWOT RIDGE FOREST
+   NWT_growthSPEI$dbh <- as.numeric(NWT_growthSPEI$dbh)
+   head(NWT_growthSPEI)
+
+   #SAME FOR BARRO COLORADO ISLAND
+   BCI_growthSPEI$dbh <- as.numeric(BCI_growthSPEI$dbh)
+   head(BCI_growthSPEI)
+
+```
+
+For practical purposes, also decided to omit all "unidentified" trees
+
+```{r}
+
+NWT_growthSPEI_clean <- NWT_growthSPEI %>%
+  filter(!(species_binomial %in% c("unidentified_NWT", NA, "")))
+
+
+BCI_growthSPEI_clean <- BCI_growthSPEI %>%
+  filter(!(species_binomial %in% c("unidentified_BCI", NA, "")))
+
+
+
+
+```
+
+Unified the columns to merge both sites in a new dataset
+
+```{r}
+# Find missing columns in BCI_growthSPEI_clean that are in NWT_growthSPEI_clean
+missing_columns <- setdiff(colnames(NWT_growthSPEI_clean), colnames(BCI_growthSPEI_clean))
+
+# Add missing columns to BCI_growthSPEI_clean and fill with NA
+for (col in missing_columns) {
+  BCI_growthSPEI_clean[[col]] <- NA
+}
+
+# Ensure the column order in BCI_growthSPEI_clean matches NWT_growthSPEI_clean
+BCI_growthSPEI_clean <- BCI_growthSPEI_clean[, colnames(NWT_growthSPEI_clean)]
+
+# Find extra columns in BCI_growthSPEI_clean that are not in NWT_growthSPEI_clean
+extra_columns <- setdiff(colnames(BCI_growthSPEI_clean), colnames(NWT_growthSPEI_clean))
+
+# Remove extra columns from BCI_growthSPEI_clean
+BCI_growthSPEI_clean <- BCI_growthSPEI_clean[, !(colnames(BCI_growthSPEI_clean) %in% extra_columns)]
+
+# Merge the data frames
+NWTxBCI <- rbind(NWT_growthSPEI_clean, BCI_growthSPEI_clean)
+
+
+```
+
 Saved the cleaned DFs
 
 ```{r}
-write.xlsx(NWT_growthSPEI, "NWT_growthSPEI_cleaned.xlsx")
+write.xlsx(NWT_growthSPEI_clean, "NWT_c.xlsx")
 
 
-write.xlsx(BCI_growthSPEI, "BCI_growthSPEI_cleaned.xlsx")
+write.xlsx(BCI_growthSPEI_clean, "BCI_c.xlsx")
+
+
+write.xlsx(NWTxBCI,"NWTxBCI_c.xlsx")
 ```
