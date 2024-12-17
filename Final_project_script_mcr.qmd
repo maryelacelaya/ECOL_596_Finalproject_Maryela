@@ -91,7 +91,7 @@ library(dplyr)
 library(ggplot2)
 ```
 
-1.  Check for NA or empty strings on the df
+1.  Check for NA or empty strings on the df ++++
 
     ```{r}
     #NIWOT RIDGE FOREST
@@ -104,7 +104,7 @@ library(ggplot2)
 
     ```
 
-2.  Used the tree_summarise function from the "forestmangr" package to calculate the equivalent diameter of trees with more than one trunk.
+2.  Used the tree_summarise function from the "forestmangr" package to calculate the equivalent diameter of trees with more than one trunk. +++++++++++++++
 
 ```{r}
 #For Niwot Ridge Forest
@@ -171,7 +171,7 @@ BCI_rate <- BCI %>%
 
     ```
 
-4.  Then, merged the two forest
+4.  Then, merged the two forest +++++++++
 
     ```{r}
     # View columns to identify differences
@@ -223,6 +223,30 @@ NWT_lme<- lmer(growth_rate ~ SPEI_3 + (1 | main) , data = NWT_rate_c)
 
 summary(NWT_lme)
 
+
+```
+
+a better approach? YES, lower REML than MODEL 1
+
+```{r}
+NWT_lme2 <- lmer(growth_rate ~ SPEI_3 * species_binomial + date.year + (1 | main), data = NWT_rate_c)
+
+summary(NWT_lme2)
+```
+
+A Better better? YESS
+
+```{r}
+NWT_lme2_simplified <- lmer(growth_rate ~ SPEI_3 + species_binomial + date.year + (1 | main), data = NWT_rate_c)
+
+summary(NWT_lme2_simplified)
+```
+
+GLM because my data is not normal distributed
+
+```{r}
+glmer_growth <- glmer(growth_rate ~ SPEI_3 + species_binomial + date.year + (1 | main), 
+                      family = Gamma(link = "log"), data = NWT_rate_c)
 
 ```
 
@@ -304,7 +328,7 @@ complete_rows <- complete.cases(NWT_rate_c[, c("date.year", "site", "plot", "cen
 NWT_rate_c$predicted_growth[complete_rows] <- predict(NWT_lme, newdata = NWT_rate_c[complete_rows, ])
 
 
-# Filter the data
+# Filter the data ++++++++
 NWT_rate_c_filtered <- NWT_rate_c %>%
   filter(SPEI_3 <= 0, species_binomial != "unidentified_NWT")
 

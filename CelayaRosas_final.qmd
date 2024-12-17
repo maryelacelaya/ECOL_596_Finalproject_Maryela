@@ -5,9 +5,13 @@ format: html
 editor: visual
 ---
 
+This document belongs to the repository: <https://github.com/maryelacelaya/ECOL_596_Finalproject_Maryela.git>
+
+For more information, please consult.
+
 ## PART 1: Data description
 
-### Data sources:
+### Data sources
 
 Growth data were obtained from [**The Forest Macrosystems Network (FMN)**](https://www.forestmacrosystems.org/) project. For this analysis, I focused on the **Niwot Ridge, CO, USA**: A subalpine forest. Growth data were collected during the sampling years 2012, 2013, 2014, 2015, 2016, 2017, 2019, 2020, and 2022.
 
@@ -15,7 +19,7 @@ Drought data were obtained from the [**SPEI Global Drought Monitor**](https://sp
 
 Further details on data collection methods can be found on the respective website.
 
-### Description of columns:
+### Description of columns
 
 Load data
 
@@ -29,35 +33,40 @@ NWT<- read_excel("01_Cleaning_dataframes/NWT_c.xlsx")
 
 The forest dataset underwent preliminary cleaning (details available in *01_Cleaning_dataframes*). While the dataset contain numerous columns, the following variables were specifically used for this analysis:
 
--   **`date.year`**: The year of the observation.
+-   **`date.year`**: Year of the observation.
 
--   **`site`**: The forest name (Niwot Ridge).
+-   **`site`**: Name of the forest (Niwot Ridge).
 
--   **`plot` / `line`**: Subplot information for each site. Each forest comprises five plots, with each plot containing 10 sampling lines or transects. Both "plot" and "line" are required to maintain homogeneous conditions.
+-   **`plot` / `line`**: Subplot details. Each forest consists of five plots, and each plot includes 10 sampling lines or transects. Both "plot" and "line" were required to maintain homogeneity.
 
 -   **`main`**: A unique identifier for each tree or shrub.
 
--   **`species_binomial`**: The scientific name of the tree or shrub species.
+-   **`species_binomial`**: Scientific name of the tree or shrub species.
 
--   **`SPEI_3`**: The standardized precipitation-evapotranspiration index (SPEI) value with a three-month resolution, representing drought intensity.
+-   **`SPEI_3`**: Standardized precipitation-evapotranspiration index (SPEI) at a three-month resolution, representing drought intensity.
 
 -   **`dbh`**: The raw value of diameter at breast height (DBH).
 
 ## PART 2: Scientific goal
 
-The research question of this project is "Are drought seasons reflected on the growth rates?"
+The central research question of this project is: "Are drought seasons reflected in the growth rates of trees?"
 
-In DAG, it would look something like this: drought —\> growth , but in a effort to include more variables, I also recognize this relations: year —\> drought —\> growth \<--- species
+In a Directed Acyclic Graph (DAG), the relationship can be summarized as:\
+drought → growth. However, to include additional variables, the relationships expand to: year → drought → growth ← species.
 
 I hypothesize that tree growth rates will exhibit a significant negative correlation with drought intensity, such that growth rates will decline during years characterized by more severe drought conditions.
 
 ## PART 3: Statistical analysis
 
-To test if drought seasons are affecting the growth rates, I conducted a Linear Mixed-Effect Model (LME) per site, where SPEI was use as the fixed effect, and a random effect was included for individual trees and years. Then, I used a LME, where SPEI where a fixed effect and the Forest type was an interaction term, with the same random effects.
+To test the effect of drought seasons on growth rates, I implemented a Mixed-Effects Model (MEM). Here:
 
-It is important to note that using "main" (that is, tree ID) is not the same as "species_binomial", since the first would reflect variability between individuals, and the second, between taxonomic species.
+-   Tree ID (main) was used as a random intercept to account for variability between individual trees.
 
-### Pre-statistical analysis settings:
+-   SPEI, species, and year were included as fixed effects.
+
+It is important to distinguish between main (tree ID) and species_binomial (species name). The former accounts for variability between individuals, while the latter reflects variability between taxonomic species.
+
+### Pre-statistical analysis settings
 
 0.  Load necessary library
 
@@ -70,17 +79,19 @@ library(dplyr)
 library(ggplot2)
 ```
 
-2.  Used the tree_summarise function from the "forestmangr" package to calculate the equivalent diameter of trees with more than one trunk.
+1.  I used the tree_summarise function from the forestmangr package to calculate the equivalent diameter for trees with multiple trunks.
 
-    ```{r}
-    #For Niwot Ridge Forest
-    NWT<-tree_summarise(NWT, #my DF
-                        "dbh", #column with size measurements
-                        tree="main", #tree id column
-                        .groups = c("plot","date.year","site","line")) #parameters to subdivide the estimated dbh
-    ```
+```{r}
+#For Niwot Ridge Forest
+NWT<-tree_summarise(NWT, #my DF
+                    "dbh", #column with size measurements
+                    tree="main", #tree id column
+                    .groups = c("plot","date.year","site","line")) #parameters to subdivide the estimated dbh
+```
 
-3.  The "growth rate" was subsequently calculated by determining the annual increment in diameter at breast height (DBH). This was achieved by subtracting the DBH value of the previous year from the current year's DBH. While there are established formulas for calculating growth rate with greater precision, this straightforward method was selected for practical purposes in this analysis.
+2.  The growth rate was calculated as the annual increase in the diameter at breast height (DBH). Specifically, I subtracted the DBH measurement of the previous year from the current year's DBH value.
+
+    While there are more precise methods for calculating growth rates, this straightforward approach was chosen for simplicity and practicality in this analysis.
 
     ```{r}
     #For NWT
@@ -93,7 +104,7 @@ library(ggplot2)
 
     ```
 
-4.  As a tree cannot "decrease", I omitted all negative "growth_rate" values, as this is probably due to measurement error.
+3.  Negative growth rates were excluded because a tree cannot decrease in size. Such values are likely due to measurement errors during data collection.
 
     ```{r}
     NWT_rate_c <- NWT_rate %>%
@@ -107,126 +118,48 @@ library(ggplot2)
 
     ```
 
-### RAW DATA OVERVIEW
+4.  Data exploration
 
--   Plot per species
+4.1. Distribution of variables.
+
+The distribution of growth rates reveals that most trees experienced small or negligible growth increments. The SPEI values suggest that mild drought events were more frequent than severe droughts during the evaluated years.
 
 ```{r}
-ggplot(NWT_rate_cf2, aes(x = as.factor(date.year), y = growth_rate, color = species_binomial)) +
-  geom_point(alpha = 0.6) +  # Plot individual points with some transparency
-  geom_smooth(method = "lm", se = FALSE, aes(color = species_binomial), size = 1.2) +  # Add a linear trend line for each species
-  stat_summary(fun = "mean", geom = "line", aes(group = 1), color = "black", size = 1.5) +  # Black line for overall average trend of DBH
-  geom_smooth(aes(x = as.factor(date.year), y = SPEI_3), method = "lm", se = FALSE, color = "red", size = 1.2) +  # Add red line for SPEI_3 trend over time
+# Histogram for growth_rate
+ggplot(NWT_rate_cf2, aes(x = growth_rate)) +
+  geom_histogram(binwidth = 0.5, fill = "#0073C2FF", color = "white", alpha = 0.8) + 
+  geom_density(aes(y = 0.5 * ..count..), color = "black", size = 0.8, linetype = "dashed") + 
   labs(
-    title = "Niwot growth rate vs Year by Species",
-    subtitle = "The black line represents the overall average trend of DBH over the years.\nThe red line represents the trend of SPEI_3 over time.",
-    x = "Year",
-    y = "growth",
-    color = "Species"
+    title = "Distribution of Growth Rates",
+    x = "Growth Rate",
+    y = "Frequency"
   ) +
-  theme_minimal() +  # Use a minimal theme for the plot
-  theme(legend.position = "bottom")  # Position the legend at the bottom
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
 
-```
-
-```{r}
-# Calculate the average DBH per year and species
-avg_growth_per_year_species <- NWT_rate_cf2 %>%
-  group_by(date.year, species_binomial) %>%
-  summarize(avg_growth = mean(growth_rate, na.rm = TRUE), .groups = "drop")
-
-# Plot with trend lines for both DBH and SPEI_3
-ggplot() +
-  # Plot average DBH per year for each species
-  geom_point(data = avg_growth_per_year_species, 
-             aes(x = as.factor(date.year), y = avg_growth, color = species_binomial), 
-             alpha = 0.6) + 
-  
-  # Trend line for average DBH (blue line)
-  geom_smooth(data = avg_growth_per_year_species, 
-              aes(x = as.factor(date.year), y = avg_growth), 
-              method = "lm", se = FALSE, color = "blue", size = 1.2, linetype = "solid") +  
-  
-  # Trend line for SPEI_3 (red line) from the original dataset
-  geom_smooth(data = NWT_rate_cf2, 
-              aes(x = as.factor(date.year), y = SPEI_3), 
-              method = "lm", se = FALSE, color = "red", size = 1.2, linetype = "solid") + 
-  
-  # Secondary axis for SPEI_3
-  scale_y_continuous(
-    name = "Average growth",
-    sec.axis = sec_axis(~ ., name = "SPEI_3")  # Secondary axis for SPEI_3
-  ) +
-  
+# Histogram for SPEI_3
+ggplot(NWT_rate_cf2, aes(x = SPEI_3)) +
+  geom_histogram(binwidth = 0.1, fill = "#E69F00", color = "white", alpha = 0.8) + 
+  geom_density(aes(y = 0.1 * ..count..), color = "black", size = 0.8, linetype = "dashed") + 
   labs(
-    title = "Niwot Average growth rate vs Year by Species",
-    subtitle = "Blue line represents the trend of average DBH over time.\nRed line represents the trend of SPEI_3 over time.",
-    x = "Year",
-    color = "Species"
+    title = "Distribution of Droughts",
+    x = "SPEI (Climate Index)",
+    y = "Frequency"
   ) +
-  theme_minimal() +  # Use a minimal theme for the plot
-  theme(legend.position = "bottom")  # Position the legend at the bottom
-
-
-
-```
-
-```{r}
-ggplot(NWT_rate_cf2, aes(x = as.factor(date.year), y = SPEI_3, color = species_binomial)) +
-  geom_point(alpha = 0.6) +  # Plot individual points with some transparency
-  geom_smooth(method = "lm", se = FALSE, aes(color = species_binomial), size = 1.2) +  # Add a linear trend line for each species
-  stat_summary(fun = "mean", geom = "line", aes(group = 1), size = 1.5) +  # Black line for overall average trend of SPEI_3
-  labs(
-    title = "Niwot SPEI_3 vs Year by Species",
-    x = "Year",
-    y = "SPEI_3",
-    color = "Species"
-  ) +
-  theme_minimal() +  # Use a minimal theme for the plot
-  theme(legend.position = "bottom")  # Position the legend at the bottom
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
 
 ```
 
-Check distribution of variables
+4.2. Testing the assumptions for linear regression.
 
-```{r}
-# Visualize the distribution of growth_rate and SPEI_3
-library(ggplot2)
-ggplot(NWT_rate_cf2, aes(x = growth_rate)) + geom_histogram(binwidth = 0.5) + theme_minimal()
-ggplot(NWT_rate_cf2, aes(x = SPEI_3)) + geom_histogram(binwidth = 0.1) + theme_minimal()
-
-
-```
-
-Visualize the relationships between variables
-
-```{r}
-# Plot growth_rate vs SPEI_3
-ggplot(NWT_rate_cf2, aes(x = SPEI_3, y = growth_rate)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  theme_minimal()
-
-# Plot growth_rate vs year for different species
-ggplot(NWT_rate_cf2, aes(x = date.year, y = growth_rate, color = species_binomial)) +
-  geom_line() +
-  theme_minimal() +
-  labs(title = "Growth Rate Over Time by Species")
-
-```
-
-Check the relationships between variables using correlations
-
-```{r}
-# Correlation between growth_rate and SPEI_3
-cor(NWT_rate_cf2$growth_rate, NWT_rate_cf2$SPEI_3, use = "complete.obs")
-
-# Correlation matrix for all numeric variables
-cor(NWT_rate_cf2[, c("growth_rate", "SPEI_3", "dbh")], use = "complete.obs")
-
-```
-
-Testing the assumptions for linear regression. In here, I notice that the residuals do not follow a normal distribution (p-value \<2.2e-16)
+The residuals did not follow a normal distribution (p \< 2.2e-16). A funnel-shaped pattern was observed, with increasing variability at higher fitted values, indicating heteroscedasticity.
 
 ```{r}
 # Fit a preliminary linear model
@@ -238,10 +171,131 @@ plot(lm_model)
 
 # Perform a Shapiro-Wilk test for normality of residuals
 shapiro.test(resid(lm_model))
+```
+
+### Raw data overview
+
+-   Check the relationships between variables using correlations.
+
+The results indicate almost no linear relationship between growth rate (neither DBH) and SPEI.
+
+```{r}
+#Correlation between growth_rate and SPEI_3
+cor(NWT_rate_cf2$growth_rate, NWT_rate_cf2$SPEI_3, use = "complete.obs")
+
+#Correlation matrix for all numeric variables
+cor(NWT_rate_cf2[, c("growth_rate", "SPEI_3", "dbh")], use = "complete.obs")
+```
+
+-   Growth rate per year by species.
+
+The average trend in growth rates appears relatively consistent across years, but 2020 stands out as a year with noticeably higher growth.
+
+```{r}
+ggplot(NWT_rate_cf2, aes(x = as.factor(date.year), y = growth_rate, color = species_binomial)) +
+  geom_point(alpha = 0.6) +  # Plot individual points with some transparency
+  geom_smooth(method = "lm", se = FALSE, aes(color = species_binomial), size = 1) + 
+  stat_summary(fun = "mean", geom = "line", aes(group = 1), color = "gray", size = 1.5) +  #line for overall average trend of growth rate
+  labs(
+    title = "Growth rate per Year by Species",
+    subtitle = "The line represents the overall average trend of DBH over the years.",
+    x = "Year",
+    y = "Growth rate",
+    color = "Species"
+  ) +
+  theme_minimal() +  
+  theme(legend.position = "bottom")  # Position the legend at the bottom
 
 ```
 
-Exploring the effect of drought on growth
+-   Average Growth Rate and SPEI Over Time by Species
+
+This plot suggests that the growth rate of all species, except *Pinus flexilis*, has improved over time. This trend aligns with the observed increase in the Standardized Precipitation-Evapotranspiration Index (SPEI), indicating a shift toward less severe drought conditions. Overall, the relationship between growth rate and SPEI is positive; however, the response appears to be species-specific.
+
+```{r}
+# Calculate the average growth per year and species
+avg_growth_per_year_species <- NWT_rate_cf2 %>%
+  group_by(date.year, species_binomial) %>%
+  summarize(avg_growth = mean(growth_rate, na.rm = TRUE), .groups = "drop")
+
+# Create the plot
+ggplot() +
+  # Points and trend lines for average growth per species
+  geom_point(data = avg_growth_per_year_species, 
+             aes(x = date.year, y = avg_growth, color = species_binomial), 
+             alpha = 0.8, size = 2) +  # Increased transparency (alpha = 0.4)
+  geom_smooth(data = avg_growth_per_year_species, 
+              aes(x = date.year, y = avg_growth, color = species_binomial), 
+              method = "lm", se = FALSE, size = 1) +  
+  
+  # Dashed trend line for SPEI_3
+  geom_smooth(data = NWT_rate_cf2, 
+              aes(x = date.year, y = SPEI_3), 
+              method = "lm", se = FALSE, color = "red", size = 1.2, linetype = "dashed") + 
+  
+  # Dual y-axes
+  scale_y_continuous(
+    name = "Average Growth Rate",
+    sec.axis = sec_axis(~ . - 4, name = "SPEI_3 (Red Dashed Line)")
+  ) +  # Added "+" here
+  
+  # Ensure x-axis (year) doesn't show decimals and rotate labels
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 10),  # Regular intervals
+    labels = scales::number_format(accuracy = 1)  # Show years as whole numbers
+  ) +
+  
+  # Titles and labels
+  labs(
+    title = "Average Growth Rate and SPEI Over Time by Species",
+    subtitle = "Colored points and lines represent growth trends for each species.\nRed dashed line shows the trend for SPEI over time.",
+    x = "Year",
+    color = "Species"
+  ) +
+  
+  # Custom theme
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold"),
+    plot.subtitle = element_text(hjust = 0.3),
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels
+  )
+
+
+```
+
+-   SPEI trend over year
+
+Here we can confirm that the drought intensity has been decreasing over time (notice that -2 indicates a drier event than -0.5).
+
+```{r}
+ggplot(NWT_rate_cf2, aes(x = as.factor(date.year), y = SPEI_3)) +
+  geom_point(alpha = 0.6, color = "blue", size = 2) +  # Blue points with some transparency
+  geom_line(group = 1, color = "blue", size = 1) +  # Line connecting the points
+  geom_smooth(data = NWT_rate_cf2, aes(x = as.numeric(as.factor(date.year)), y = SPEI_3), 
+              method = "lm", se = FALSE, color = "red", size = 1, linetype = "dashed") +  # Add red trend line
+  labs(
+    title = "Trend of Drought Over Years",
+    subtitle = "Dashed red line represents the linear trend of SPEI over time.",
+    x = "Year",
+    y = "SPEI"
+  ) +
+  theme_minimal() +  # Use a clean minimal theme
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),  # Center and bold the title
+    plot.subtitle = element_text(hjust = 0.5),  # Center the subtitle
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels
+  )
+
+
+
+```
+
+### Statistical test
+
+Based on an initial exploration of the raw data, I tested a linear model (*lm_model*), which does not include interactions. Subsequently, I tested an interaction model (*lm_interaction_model*) to specifically examine the interaction between drought and species.
 
 ```{r}
 # Fit a linear model
@@ -250,7 +304,7 @@ summary(lm_model)
 
 ```
 
-Also check for interactions
+Check for interactions as well
 
 ```{r}
 # Including interactions between SPEI_3 and species
@@ -267,7 +321,7 @@ AIC(lm_model, lm_interaction_model)
 
 ```
 
-Also conducted a F-Test for model comparison. The result highlights that the model with interactions is not providing a significant better fit (p-value=0.4599).
+Also conducted a F-Test for model comparison. The result highlights that the model with interactions is not providing a significant better fit (p-value=0.4599). Considering the AIC and F-test, the simpler model seems to be a better option.
 
 ```{r}
 # Perform an F-test to compare the two models
@@ -275,34 +329,30 @@ anova(lm_model, lm_interaction_model)
 
 ```
 
-### MEM
+#### MEM
 
-Based on the exploration, and considering that the data is from multiple measurements from the same tree, I conducted a Mixed-Effects Model
+##### MEM 1
+
+Given the results from the AIC comparison and the F-test, and considering that the data is from multiple measurements from the same tree, I conducted a Mixed-Effects Model. In here, the tree ID (main) is considered as a random intercept, so each tree can have its own baseline growth rate, and used as a fixed effect the SPEI, species, and year.
 
 ```{r}
 # Fit the mixed-effects model
-mixed_model <- lmer(growth_rate ~ SPEI_3  + species_binomial + date.year + (1|main), data = NWT_rate_cf2)
+mixed_model1 <- lmer(growth_rate ~ SPEI_3  + species_binomial + date.year + (1|main), data = NWT_rate_cf2)
 
 # Check the summary of the mixed-effects model
-summary(mixed_model)
+summary(mixed_model1)
 
 # Perform likelihood ratio tests, to see how much each variable is influencing the growth rate
-anova(mixed_model)
+anova(mixed_model1)
 
 
 ```
 
-To assess model fit (check model diagnostics: residuals, random effects, etc.)
+To assess model fit (check model diagnostics: residuals, random effects, etc.). Based on this plot, most of the points are clustered close to the lower values, this may mean that the model is predicting low growth rates reasonably well, but higher growth rates are not fitting well. There's also high residual variability not explained by the effects that I included in the model.
 
 ```{r}
-plot(mixed_model)
-
-```
-
-Observed vs predicted values
-
-```{r}
-predicted_growth <- predict(mixed_model)
+#Observed vs predicted values
+predicted_growth <- predict(mixed_model1)
 ggplot(NWT_rate_cf2, aes(x = predicted_growth, y = growth_rate)) +
   geom_point(alpha = 0.5) +
   geom_abline(slope = 1, intercept = 0, color = "red") +
@@ -311,58 +361,49 @@ ggplot(NWT_rate_cf2, aes(x = predicted_growth, y = growth_rate)) +
 
 ```
 
+##### MEM 2
+
+To stabilize variance, I applied a log transformation to the growth rate, which reduced the REML criterion but did not fully explain residual variability (residual variance = 0.9831).
+
+```{r}
+mixed_model2 <- lmer(log(growth_rate) ~ SPEI_3 + species_binomial + date.year + (1|main), data = NWT_rate_cf2)
+
+summary(mixed_model2)
+
+anova(mixed_model2)
+
+```
+
 ### Results visualization
-
-Plot for individual tree variation (random effect)
-
-```{r}
-random_effects <- ranef(mixed_model)$main
-ggplot(random_effects, aes(x = `(Intercept)`)) +
-  geom_histogram(binwidth = 0.5, fill = "lightblue", color = "black") +
-  theme_minimal() +
-  labs(title = "Distribution of Random Intercepts (Tree Variability)", 
-       x = "Random Intercept (Baseline Growth Rate)", y = "Frequency")
-
-```
-
-To see the differences on growth rate per species
-
-```{r}
-species_effects <- data.frame(
-  species = c("Picea engelmannii", "Pinus contorta", "Pinus flexilis"),
-  estimate = c(0.05208, 0.00361, 2.875),
-  se = c(0.1943, 0.1498, 0.6316)
-)
-
-ggplot(species_effects, aes(x = species, y = estimate, ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se)) +
-  geom_point() +
-  geom_errorbar(width = 0.2) +
-  labs(title = "Effect of Species on Growth Rate", x = "Species", y = "Estimated Effect") +
-  theme_minimal()
-
-```
 
 Effect of SPEI on growth rate
 
 ```{r}
-ggplot(NWT_rate_cf2, aes(x = SPEI_3, y = growth_rate)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = "lm", se = FALSE, color = "blue") +
-  labs(title = "Effect of SPEI_3 on Growth Rate", x = "SPEI_3", y = "Growth Rate") +
+ggplot(NWT_rate_cf2, aes(x = SPEI_3, y = log(growth_rate))) +
+  geom_point(alpha = 0.5, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(title = "Effect of SPEI on Growth Rate",
+       x = "SPEI (Drought Index)",
+       y = "Log-Transformed Growth Rate") +
   theme_minimal()
-
 ```
 
-Growth rate trend per year
+Growth Rate Differences by Species
 
 ```{r}
-ggplot(NWT_rate_cf2, aes(x = date.year, y = growth_rate)) +
-  geom_line(stat = "summary", fun = "mean", color = "darkgreen") +
-  labs(title = "Yearly Trends in Growth Rate", x = "Year", y = "Mean Growth Rate") +
-  theme_minimal()
+# Growth rate per species
+ggplot(NWT_rate_cf2, aes(x = species_binomial, y = log(growth_rate), fill = species_binomial)) +
+  geom_boxplot() +
+  labs(title = "Differences in Growth Rate Across Species",
+       x = "Species",
+       y = "Log-Transformed Growth Rate") +
+  theme_minimal() +
+  theme(legend.position = "none")
 
 ```
 
 ## PART 4: Interpretation and Conclusion
 
-The most significant factor affecting growth rate is the **species**, this finding shows that different tree species might respond differently to environmental factors. Meanwhile, the **climatic index (SPEI)** does not seem to influence growth rate significantly, as both the coefficient and p-value suggest no effect. This might indicate that other climatic variables, or perhaps a longer time scale (e.g., longer periods of drought), might be more relevant for understanding growth patterns.
+The most significant factor affecting growth rate is **species**, highlighting species-specific responses to environmental conditions. Meanwhile, the climatic drought index (SPEI) does not significantly influence growth rates, as evidenced by the non-significant coefficient and p-value.
+
+This analysis suggests that drought alone may not explain growth patterns. Other climatic variables, such as temperature or precipitation, or longer temporal scales (e.g., prolonged drought periods), may better capture the drivers of tree growth variability. Non-climatic factors, such as soil properties or competition, may also warrant further investigation.
