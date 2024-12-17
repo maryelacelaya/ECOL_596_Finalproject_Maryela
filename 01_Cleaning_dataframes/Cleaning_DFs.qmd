@@ -177,10 +177,17 @@ Check for NA or empty strings on the DF
    #NIWOT RIDGE FOREST
    NWT_growthSPEI$dbh <- as.numeric(NWT_growthSPEI$dbh)
    head(NWT_growthSPEI)
+   
+# Remove rows with NA in the species_binomial column
+NWT_growthSPEI <- na.omit(NWT_growthSPEI, cols = "species_binomial")
 
-   #SAME FOR BARRO COLORADO ISLAND
-   BCI_growthSPEI$dbh <- as.numeric(BCI_growthSPEI$dbh)
+   
+
+#SAME FOR BARRO COLORADO ISLAND
+BCI_growthSPEI$dbh <- as.numeric(BCI_growthSPEI$dbh)
    head(BCI_growthSPEI)
+
+BCI_growthSPEI <- na.omit(BCI_growthSPEI, cols = "species_binomial")
 
 ```
 
